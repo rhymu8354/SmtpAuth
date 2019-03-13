@@ -20,7 +20,7 @@ namespace SmtpAuth {
      * protocol.
      */
     class Client
-        : Smtp::Client::Extension
+        : public Smtp::Client::Extension
     {
         // Lifecycle management
     public:
