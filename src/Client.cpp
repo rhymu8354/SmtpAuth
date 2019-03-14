@@ -256,6 +256,13 @@ namespace SmtpAuth {
             } break;
 
             default: { // something bad happened; FeelsBadMan
+                impl_->diagnosticsSender.SendDiagnosticInformationFormatted(
+                    SystemAbstractions::DiagnosticsSender::Levels::WARNING,
+                    "S: %d%c%s",
+                    message.code,
+                    message.last ? ' ' : '-',
+                    message.text.c_str()
+                );
             } return false;
         }
         return true;
