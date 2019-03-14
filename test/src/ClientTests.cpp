@@ -25,6 +25,8 @@ namespace {
         // Properties
 
         std::string initialResponse;
+        std::string username;
+        std::string password;
 
         // Methods
 
@@ -40,6 +42,8 @@ namespace {
             const std::string& authenticationIdentity,
             const std::string& authorizationIdentity = ""
         ) override {
+            password = credentials;
+            username = authenticationIdentity;
         }
 
         virtual std::string GetInitialResponse() override {
@@ -273,4 +277,13 @@ TEST_F(ClientTests, NoExtraProtocolStageNeededAfterAuthentication) {
     );
     ASSERT_TRUE(done);
     EXPECT_FALSE(auth.IsExtraProtocolStageNeededHere(context));
+}
+
+TEST_F(ClientTests, SetCredentials) {
+    auth.Configure("FOO BAR");
+    auth.SetCredentials("hunter2", "alex");
+    EXPECT_EQ("hunter2", mech1->password);
+    EXPECT_EQ("alex", mech1->username);
+    EXPECT_EQ("hunter2", mech2->password);
+    EXPECT_EQ("alex", mech2->username);
 }

@@ -139,6 +139,20 @@ namespace SmtpAuth {
         mech.rank = rank;
     }
 
+    void Client::SetCredentials(
+        const std::string& credentials,
+        const std::string& authenticationIdentity,
+        const std::string& authorizationIdentity
+    ) {
+        for (auto& mech: impl_->mechs) {
+            mech.second.impl->SetCredentials(
+                credentials,
+                authenticationIdentity,
+                authorizationIdentity
+            );
+        }
+    }
+
     void Client::Configure(const std::string& parameters) {
         impl_->supportedMechs = SystemAbstractions::Split(parameters, ' ');
     }

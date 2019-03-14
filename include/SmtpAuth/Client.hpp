@@ -58,6 +58,29 @@ namespace SmtpAuth {
             std::shared_ptr< Sasl::Client::Mechanism > mechImpl
         );
 
+        /**
+         * Set the identities and credentials to use in the authentication.
+         *
+         * @param[in] credentials
+         *     This is the information specific to the mechanism that
+         *     the client uses to authenticate (e.g. certificate, ticket,
+         *     password, etc.)
+         *
+         * @param[in] authenticationIdentity
+         *     This is the identity to to associate with the credentials
+         *     in the authentication.
+         *
+         * @param[in] authorizationIdentity
+         *     This is the identity to "act as" in the authentication.
+         *     If empty, the client is requesting to act as the identity the
+         *     server associates with the client's credentials.
+         */
+        void SetCredentials(
+            const std::string& credentials,
+            const std::string& authenticationIdentity,
+            const std::string& authorizationIdentity = ""
+        );
+
         // Smtp::Client::Extension
     public:
         virtual void Configure(const std::string& parameters) override;
