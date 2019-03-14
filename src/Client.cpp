@@ -44,6 +44,12 @@ namespace SmtpAuth {
         // Properties
 
         /**
+         * This is a helper object used to generate and publish
+         * diagnostic messages.
+         */
+        SystemAbstractions::DiagnosticsSender diagnosticsSender;
+
+        /**
          * This contains all registered SASL mechanisms, keyed by the name that
          * the SMTP server recognizes for the mechanism.
          */
@@ -65,6 +71,12 @@ namespace SmtpAuth {
          * mechanism.
          */
         std::string selectedMechName;
+
+        /**
+         * This is the function to call to unsubscribe from receiving
+         * diagnostic messages from the selected SASL mechanism.
+         */
+        SystemAbstractions::DiagnosticsSender::UnsubscribeDelegate selectedMechDiagnosticsUnsubscribeDelegate;
 
         /**
          * This flag is set once the authentication exchange is complete,
@@ -89,6 +101,14 @@ namespace SmtpAuth {
         // Methods
 
         /**
+         * This is the default constructor of the structure
+         */
+        Impl()
+            : diagnosticsSender("SmtpAuth")
+        {
+        }
+
+        /**
          * Handle the fact that the authentication stage is complete.
          */
         void OnDone(bool success) {
@@ -101,6 +121,9 @@ namespace SmtpAuth {
          * supported by the SMTP server.
          */
         void SelectBestSupportedMechanism() {
+            if (selectedMechDiagnosticsUnsubscribeDelegate != nullptr) {
+                selectedMechDiagnosticsUnsubscribeDelegate();
+            }
             int selectedRank = 0;
             selectedMech = nullptr;
             for (const auto& supportedMech: supportedMechs) {
@@ -117,6 +140,11 @@ namespace SmtpAuth {
                     selectedRank = mechsEntry->second.rank;
                 }
             }
+            if (selectedMech != nullptr) {
+                selectedMechDiagnosticsUnsubscribeDelegate = selectedMech->SubscribeToDiagnostics(
+                    diagnosticsSender.Chain()
+                );
+            }
         }
     };
 
@@ -127,6 +155,13 @@ namespace SmtpAuth {
     Client::Client()
         : impl_(new Impl)
     {
+    }
+
+    SystemAbstractions::DiagnosticsSender::UnsubscribeDelegate Client::SubscribeToDiagnostics(
+        SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate delegate,
+        size_t minLevel
+    ) {
+        return impl_->diagnosticsSender.SubscribeToDiagnostics(delegate, minLevel);
     }
 
     void Client::Register(
@@ -192,12 +227,27 @@ namespace SmtpAuth {
     ) {
         switch (message.code) {
             case 235: { // successfully authenticated
+                impl_->diagnosticsSender.SendDiagnosticInformationFormatted(
+                    0,
+                    "S: %d%c%s",
+                    message.code,
+                    message.last ? ' ' : '-',
+                    message.text.c_str()
+                );
                 impl_->OnDone(true);
             } break;
 
             case 334: { // continue request
+                const auto decodedText = Base64::Decode(message.text);
+                impl_->diagnosticsSender.SendDiagnosticInformationFormatted(
+                    0,
+                    "S: %d%c%s",
+                    message.code,
+                    message.last ? ' ' : '-',
+                    decodedText.c_str()
+                );
                 const auto response = impl_->selectedMech->Proceed(
-                    message.text
+                    decodedText
                 );
                 std::ostringstream messageBuilder;
                 messageBuilder << Base64::Encode(response);

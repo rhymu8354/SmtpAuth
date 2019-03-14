@@ -11,6 +11,7 @@
 #include <memory>
 #include <Sasl/Client/Mechanism.hpp>
 #include <Smtp/Client.hpp>
+#include <SystemAbstractions/DiagnosticsSender.hpp>
 
 namespace SmtpAuth {
 
@@ -36,6 +37,27 @@ namespace SmtpAuth {
          * This is the default constructor.
          */
         Client();
+
+        /**
+         * This method forms a new subscription to diagnostic
+         * messages published by the class.
+         *
+         * @param[in] delegate
+         *     This is the function to call to deliver messages
+         *     to the subscriber.
+         *
+         * @param[in] minLevel
+         *     This is the minimum level of message that this subscriber
+         *     desires to receive.
+         *
+         * @return
+         *     A function is returned which may be called
+         *     to terminate the subscription.
+         */
+        SystemAbstractions::DiagnosticsSender::UnsubscribeDelegate SubscribeToDiagnostics(
+            SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate delegate,
+            size_t minLevel = 0
+        );
 
         /**
          * This adds an authentication mechanism to be used if supported.

@@ -37,6 +37,13 @@ namespace {
 
         // Sasl::Client::Mechanism
 
+        virtual SystemAbstractions::DiagnosticsSender::UnsubscribeDelegate SubscribeToDiagnostics(
+            SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate delegate,
+            size_t minLevel = 0
+        ) override {
+            return []{};
+        }
+
         virtual void SetCredentials(
             const std::string& credentials,
             const std::string& authenticationIdentity,
