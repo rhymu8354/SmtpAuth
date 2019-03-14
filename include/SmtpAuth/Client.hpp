@@ -60,8 +60,7 @@ namespace SmtpAuth {
         ) override;
         virtual void GoAhead(
             std::function< void(const std::string& data) > onSendMessage,
-            std::function< void() > onSoftFailure,
-            std::function< void() > onStageComplete
+            std::function< void(bool success) > onStageComplete
         ) override;
         virtual bool HandleServerMessage(
             const Smtp::Client::MessageContext& context,

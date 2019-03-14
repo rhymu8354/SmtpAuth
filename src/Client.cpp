@@ -45,27 +45,20 @@ namespace SmtpAuth {
 
         /**
          * This is a function the extension can call to let the
-         * SMTP client know that the current message failed to be
-         * sent, and the protocol should go back to the "ready to
-         * send" stage.
-         */
-        std::function< void() > onSoftFailure;
-
-        /**
-         * This is a function the extension can call to let the
          * SMTP client know that the custom procotol stage is
-         * complete, and the client may proceed to the next stage.
+         * complete.  The parameter indicates whether or not the
+         * client may proceed to the next stage.
          */
-        std::function< void() > onStageComplete;
+        std::function< void(bool success) > onStageComplete;
 
         // Method
 
         /**
          * Handle the fact that the authentication stage is complete.
          */
-        void OnDone() {
+        void OnDone(bool success) {
             done = true;
-            onStageComplete();
+            onStageComplete(success);
         }
     };
 
@@ -97,11 +90,9 @@ namespace SmtpAuth {
 
     void Client::GoAhead(
         std::function< void(const std::string& data) > onSendMessage,
-        std::function< void() > onSoftFailure,
-        std::function< void() > onStageComplete
+        std::function< void(bool success) > onStageComplete
     ) {
         impl_->onSendMessage = onSendMessage;
-        impl_->onSoftFailure = onSoftFailure;
         impl_->onStageComplete = onStageComplete;
         const auto initialResponse = impl_->mechImpl->GetInitialResponse();
         std::ostringstream messageBuilder;
@@ -119,7 +110,7 @@ namespace SmtpAuth {
     ) {
         switch (message.code) {
             case 235: { // successfully authenticated
-                impl_->OnDone();
+                impl_->OnDone(true);
             } break;
 
             case 334: { // continue request
@@ -133,8 +124,7 @@ namespace SmtpAuth {
             } break;
 
             default: { // something bad happened; FeelsBadMan
-                impl_->onSoftFailure();
-                impl_->OnDone();
+                impl_->OnDone(false);
             } break;
         }
         return true;

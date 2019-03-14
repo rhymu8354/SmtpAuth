@@ -63,8 +63,8 @@ struct ClientTests
     SmtpAuth::Client auth;
     Smtp::Client::MessageContext context;
     std::vector< std::string > messagesSent;
-    bool softFailure = false;
     bool done = false;
+    bool success = false;
 
     // Methods
 
@@ -72,19 +72,15 @@ struct ClientTests
         messagesSent.push_back(message);
     }
 
-    void OnSoftFailure() {
-        softFailure = true;
-    }
-
-    void OnExtensionStageComplete() {
+    void OnExtensionStageComplete(bool success) {
         done = true;
+        this->success = success;
     }
 
     void SendGoAhead() {
         auth.GoAhead(
             std::bind(&ClientTests::SendMessageDirectly, this, std::placeholders::_1),
-            std::bind(&ClientTests::OnSoftFailure, this),
-            std::bind(&ClientTests::OnExtensionStageComplete, this)
+            std::bind(&ClientTests::OnExtensionStageComplete, this, std::placeholders::_1)
         );
     }
 
@@ -157,7 +153,7 @@ TEST_F(ClientTests, HandleServerMessage) {
     );
 }
 
-TEST_F(ClientTests, DoneAndNoSoftFailureForSuccessfulAuthentication) {
+TEST_F(ClientTests, DoneAndSuccessForSuccessfulAuthentication) {
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
@@ -177,11 +173,11 @@ TEST_F(ClientTests, DoneAndNoSoftFailureForSuccessfulAuthentication) {
             parsedMessage
         )
     );
-    EXPECT_FALSE(softFailure);
     EXPECT_TRUE(done);
+    EXPECT_TRUE(success);
 }
 
-TEST_F(ClientTests, DoneAndSoftFailureForUnsuccessfulAuthentication) {
+TEST_F(ClientTests, DoneAndNotSuccesForUnsuccessfulAuthentication) {
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
@@ -201,8 +197,8 @@ TEST_F(ClientTests, DoneAndSoftFailureForUnsuccessfulAuthentication) {
             parsedMessage
         )
     );
-    EXPECT_TRUE(softFailure);
     EXPECT_TRUE(done);
+    EXPECT_FALSE(success);
 }
 
 TEST_F(ClientTests, NoExtraProtocolStageNeededAfterAuthentication) {
