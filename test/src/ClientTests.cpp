@@ -177,7 +177,7 @@ TEST_F(ClientTests, DoneAndSuccessForSuccessfulAuthentication) {
     EXPECT_TRUE(success);
 }
 
-TEST_F(ClientTests, DoneAndNotSuccesForUnsuccessfulAuthentication) {
+TEST_F(ClientTests, HardFailureForUnsuccessfulAuthentication) {
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
@@ -191,14 +191,13 @@ TEST_F(ClientTests, DoneAndNotSuccesForUnsuccessfulAuthentication) {
     parsedMessage.code = 535;
     parsedMessage.last = true;
     parsedMessage.text = "Go away, you smell";
-    ASSERT_TRUE(
+    ASSERT_FALSE(
         auth.HandleServerMessage(
             context,
             parsedMessage
         )
     );
-    EXPECT_TRUE(done);
-    EXPECT_FALSE(success);
+    EXPECT_FALSE(done);
 }
 
 TEST_F(ClientTests, NoExtraProtocolStageNeededAfterAuthentication) {

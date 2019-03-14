@@ -124,8 +124,7 @@ namespace SmtpAuth {
             } break;
 
             default: { // something bad happened; FeelsBadMan
-                impl_->OnDone(false);
-            } break;
+            } return false;
         }
         return true;
     }
