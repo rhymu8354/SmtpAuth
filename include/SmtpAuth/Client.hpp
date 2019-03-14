@@ -38,23 +38,29 @@ namespace SmtpAuth {
         Client();
 
         /**
-         * This sets the authentication mechanism to be used.
+         * This adds an authentication mechanism to be used if supported.
          *
          * @param[in] mechName
          *     This is the name that the SMTP server recognizes for the
          *     chosen authentication mechanism.
          *
+         * @param[in] rank
+         *     This is used to select from multiple supported mechanisms,
+         *     where the one with the highest rank is selected.
+         *
          * @param[in] mechImpl
          *     This is the implementation of the authentication mechanism
          *     to be used.
          */
-        void Configure(
+        void Register(
             const std::string& mechName,
+            int rank,
             std::shared_ptr< Sasl::Client::Mechanism > mechImpl
         );
 
         // Smtp::Client::Extension
     public:
+        virtual void Configure(const std::string& parameters) override;
         virtual bool IsExtraProtocolStageNeededHere(
             const Smtp::Client::MessageContext& context
         ) override;

@@ -8,8 +8,32 @@
 
 #include <Base64/Base64.hpp>
 #include <functional>
+#include <map>
 #include <SmtpAuth/Client.hpp>
 #include <sstream>
+#include <SystemAbstractions/StringExtensions.hpp>
+#include <vector>
+
+namespace {
+
+    /**
+     * This holds information about one registered SASL mechanism.
+     */
+    struct Mechanism {
+        /**
+         * This is the implementation of the authentication mechanism
+         * to be used.
+         */
+        std::shared_ptr< Sasl::Client::Mechanism > impl;
+
+        /**
+         * This is used to select from multiple supported mechanisms,
+         * where the one with the highest rank is selected.
+         */
+        int rank = 0;
+    };
+
+}
 
 namespace SmtpAuth {
 
@@ -20,16 +44,27 @@ namespace SmtpAuth {
         // Properties
 
         /**
-         * This is the name that the SMTP server recognizes for the
-         * chosen authentication mechanism.
+         * This contains all registered SASL mechanisms, keyed by the name that
+         * the SMTP server recognizes for the mechanism.
          */
-        std::string mechName;
+        std::map< std::string, Mechanism > mechs;
 
         /**
-         * This is the implementation of the authentication mechanism
-         * to be used.
+         * These are the names of the SASL mechanisms that the SMTP server
+         * supports.
          */
-        std::shared_ptr< Sasl::Client::Mechanism > mechImpl;
+        std::vector< std::string > supportedMechs;
+
+        /**
+         * This is the mechanism selected for use in the authentication.
+         */
+        std::shared_ptr< Sasl::Client::Mechanism > selectedMech;
+
+        /**
+         * This is the name that the SMTP server recognizes for the selected
+         * mechanism.
+         */
+        std::string selectedMechName;
 
         /**
          * This flag is set once the authentication exchange is complete,
@@ -51,7 +86,7 @@ namespace SmtpAuth {
          */
         std::function< void(bool success) > onStageComplete;
 
-        // Method
+        // Methods
 
         /**
          * Handle the fact that the authentication stage is complete.
@@ -59,6 +94,29 @@ namespace SmtpAuth {
         void OnDone(bool success) {
             done = true;
             onStageComplete(success);
+        }
+
+        /**
+         * Find the highest ranked SASL mechanism registered that is also
+         * supported by the SMTP server.
+         */
+        void SelectBestSupportedMechanism() {
+            int selectedRank = 0;
+            selectedMech = nullptr;
+            for (const auto& supportedMech: supportedMechs) {
+                const auto mechsEntry = mechs.find(supportedMech);
+                if (mechsEntry == mechs.end()) {
+                    continue;
+                }
+                if (
+                    (selectedMech == nullptr)
+                    || (mechsEntry->second.rank > selectedRank)
+                ) {
+                    selectedMechName = supportedMech;
+                    selectedMech = mechsEntry->second.impl;
+                    selectedRank = mechsEntry->second.rank;
+                }
+            }
         }
     };
 
@@ -71,21 +129,31 @@ namespace SmtpAuth {
     {
     }
 
-    void Client::Configure(
+    void Client::Register(
         const std::string& mechName,
+        int rank,
         std::shared_ptr< Sasl::Client::Mechanism > mechImpl
     ) {
-        impl_->mechName = mechName;
-        impl_->mechImpl = mechImpl;
+        auto& mech = impl_->mechs[mechName];
+        mech.impl = mechImpl;
+        mech.rank = rank;
+    }
+
+    void Client::Configure(const std::string& parameters) {
+        impl_->supportedMechs = SystemAbstractions::Split(parameters, ' ');
     }
 
     bool Client::IsExtraProtocolStageNeededHere(
         const Smtp::Client::MessageContext& context
     ) {
-        return (
-            !impl_->done
-            && (context.protocolStage == Smtp::Client::ProtocolStage::ReadyToSend)
-        );
+        if (
+            impl_->done
+            || (context.protocolStage != Smtp::Client::ProtocolStage::ReadyToSend)
+        ) {
+            return false;
+        }
+        impl_->SelectBestSupportedMechanism();
+        return (impl_->selectedMech != nullptr);
     }
 
     void Client::GoAhead(
@@ -94,9 +162,9 @@ namespace SmtpAuth {
     ) {
         impl_->onSendMessage = onSendMessage;
         impl_->onStageComplete = onStageComplete;
-        const auto initialResponse = impl_->mechImpl->GetInitialResponse();
+        const auto initialResponse = impl_->selectedMech->GetInitialResponse();
         std::ostringstream messageBuilder;
-        messageBuilder << "AUTH " << impl_->mechName;
+        messageBuilder << "AUTH " << impl_->selectedMechName;
         if (!initialResponse.empty()) {
             messageBuilder << ' ' << Base64::Encode(initialResponse);
         }
@@ -114,7 +182,7 @@ namespace SmtpAuth {
             } break;
 
             case 334: { // continue request
-                const auto response = impl_->mechImpl->Proceed(
+                const auto response = impl_->selectedMech->Proceed(
                     message.text
                 );
                 std::ostringstream messageBuilder;

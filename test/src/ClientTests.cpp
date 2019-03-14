@@ -19,9 +19,20 @@ namespace {
      * This is a mock of a SASL mechanism.  It's used to test the
      * SmtpAuth::Client class.
      */
-    struct MockSaslMechansim
+    struct MockSaslMechanism
         : public Sasl::Client::Mechanism
     {
+        // Properties
+
+        std::string initialResponse;
+
+        // Methods
+
+        explicit MockSaslMechanism(const std::string& initialResponse)
+            : initialResponse(initialResponse)
+        {
+        }
+
         // Sasl::Client::Mechanism
 
         virtual void SetCredentials(
@@ -32,7 +43,7 @@ namespace {
         }
 
         virtual std::string GetInitialResponse() override {
-            return "PogChamp";
+            return initialResponse;
         }
 
         virtual std::string Proceed(const std::string& message) override {
@@ -59,7 +70,8 @@ struct ClientTests
 {
     // Properties
 
-    std::shared_ptr< MockSaslMechansim > mech = std::make_shared< MockSaslMechansim >();
+    std::shared_ptr< MockSaslMechanism > mech1 = std::make_shared< MockSaslMechanism >("PogChamp");
+    std::shared_ptr< MockSaslMechanism > mech2 = std::make_shared< MockSaslMechanism >("FeelsBadMan");
     SmtpAuth::Client auth;
     Smtp::Client::MessageContext context;
     std::vector< std::string > messagesSent;
@@ -87,7 +99,8 @@ struct ClientTests
     // ::testing::Test
 
     virtual void SetUp() override {
-        auth.Configure("FOOBAR", mech);
+        auth.Register("FOO", 1, mech1);
+        auth.Register("BAR", 2, mech2);
     }
 
     virtual void TearDown() override {
@@ -103,9 +116,16 @@ TEST_F(ClientTests, IsExtraProtocolStageNeededHere_LeadingUpToReadyToSendFirstMe
     EXPECT_FALSE(auth.IsExtraProtocolStageNeededHere(context));
 }
 
-TEST_F(ClientTests, IsExtraProtocolStageNeededHere_ReadyToSend) {
+TEST_F(ClientTests, IsExtraProtocolStageNeededHere_ReadyToSend_MechSupported) {
+    auth.Configure("FOO");
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     EXPECT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
+}
+
+TEST_F(ClientTests, IsExtraProtocolStageNeededHere_ReadyToSend_NoMechSupported) {
+    auth.Configure("SPAM");
+    context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
+    EXPECT_FALSE(auth.IsExtraProtocolStageNeededHere(context));
 }
 
 TEST_F(ClientTests, IsExtraProtocolStageNeededHere_SendingMessage) {
@@ -119,25 +139,53 @@ TEST_F(ClientTests, IsExtraProtocolStageNeededHere_SendingMessage) {
     EXPECT_FALSE(auth.IsExtraProtocolStageNeededHere(context));
 }
 
-TEST_F(ClientTests, GoAhead) {
+TEST_F(ClientTests, GoAheadFoo) {
+    auth.Configure("FOO");
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
     EXPECT_EQ(
         std::vector< std::string >({
-            "AUTH FOOBAR " + Base64::Encode("PogChamp") + "\r\n"
+            "AUTH FOO " + Base64::Encode("PogChamp") + "\r\n"
+        }),
+        messagesSent
+    );
+}
+
+TEST_F(ClientTests, GoAheadBar) {
+    auth.Configure("BAR");
+    context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
+    ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
+    SendGoAhead();
+    EXPECT_EQ(
+        std::vector< std::string >({
+            "AUTH BAR " + Base64::Encode("FeelsBadMan") + "\r\n"
+        }),
+        messagesSent
+    );
+}
+
+TEST_F(ClientTests, GoAheadFooBar) {
+    auth.Configure("FOO BAR");
+    context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
+    ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
+    SendGoAhead();
+    EXPECT_EQ(
+        std::vector< std::string >({
+            "AUTH BAR " + Base64::Encode("FeelsBadMan") + "\r\n"
         }),
         messagesSent
     );
 }
 
 TEST_F(ClientTests, HandleServerMessage) {
+    auth.Configure("FOO");
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
     ASSERT_EQ(
         std::vector< std::string >({
-            "AUTH FOOBAR " + Base64::Encode("PogChamp") + "\r\n"
+            "AUTH FOO " + Base64::Encode("PogChamp") + "\r\n"
         }),
         messagesSent
     );
@@ -154,12 +202,13 @@ TEST_F(ClientTests, HandleServerMessage) {
 }
 
 TEST_F(ClientTests, DoneAndSuccessForSuccessfulAuthentication) {
+    auth.Configure("FOO");
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
     ASSERT_EQ(
         std::vector< std::string >({
-            "AUTH FOOBAR " + Base64::Encode("PogChamp") + "\r\n"
+            "AUTH FOO " + Base64::Encode("PogChamp") + "\r\n"
         }),
         messagesSent
     );
@@ -178,12 +227,13 @@ TEST_F(ClientTests, DoneAndSuccessForSuccessfulAuthentication) {
 }
 
 TEST_F(ClientTests, HardFailureForUnsuccessfulAuthentication) {
+    auth.Configure("FOO");
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
     ASSERT_EQ(
         std::vector< std::string >({
-            "AUTH FOOBAR " + Base64::Encode("PogChamp") + "\r\n"
+            "AUTH FOO " + Base64::Encode("PogChamp") + "\r\n"
         }),
         messagesSent
     );
@@ -201,12 +251,13 @@ TEST_F(ClientTests, HardFailureForUnsuccessfulAuthentication) {
 }
 
 TEST_F(ClientTests, NoExtraProtocolStageNeededAfterAuthentication) {
+    auth.Configure("FOO");
     context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
     ASSERT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
     SendGoAhead();
     ASSERT_EQ(
         std::vector< std::string >({
-            "AUTH FOOBAR " + Base64::Encode("PogChamp") + "\r\n"
+            "AUTH FOO " + Base64::Encode("PogChamp") + "\r\n"
         }),
         messagesSent
     );
