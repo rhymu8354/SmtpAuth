@@ -192,6 +192,12 @@ namespace SmtpAuth {
         impl_->supportedMechs = SystemAbstractions::Split(parameters, ' ');
     }
 
+    void Client::Reset() {
+        for (auto& mech: impl_->mechs) {
+            mech.second.impl->Reset();
+        }
+    }
+
     bool Client::IsExtraProtocolStageNeededHere(
         const Smtp::Client::MessageContext& context
     ) {

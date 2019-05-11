@@ -106,6 +106,7 @@ namespace SmtpAuth {
         // Smtp::Client::Extension
     public:
         virtual void Configure(const std::string& parameters) override;
+        virtual void Reset() override;
         virtual bool IsExtraProtocolStageNeededHere(
             const Smtp::Client::MessageContext& context
         ) override;

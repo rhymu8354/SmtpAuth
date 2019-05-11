@@ -27,6 +27,7 @@ namespace {
         std::string initialResponse;
         std::string username;
         std::string password;
+        bool wasReset = false;
 
         // Methods
 
@@ -42,6 +43,10 @@ namespace {
             size_t minLevel = 0
         ) override {
             return []{};
+        }
+
+        virtual void Reset() override {
+            wasReset = true;
         }
 
         virtual void SetCredentials(
@@ -293,4 +298,11 @@ TEST_F(ClientTests, SetCredentials) {
     EXPECT_EQ("alex", mech1->username);
     EXPECT_EQ("hunter2", mech2->password);
     EXPECT_EQ("alex", mech2->username);
+}
+
+TEST_F(ClientTests, AllMechsResetOnReset) {
+    auth.Configure("FOO BAR");
+    auth.Reset();
+    EXPECT_TRUE(mech1->wasReset);
+    EXPECT_TRUE(mech2->wasReset);
 }
