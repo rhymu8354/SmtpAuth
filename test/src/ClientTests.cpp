@@ -306,3 +306,20 @@ TEST_F(ClientTests, AllMechsResetOnReset) {
     EXPECT_TRUE(mech1->wasReset);
     EXPECT_TRUE(mech2->wasReset);
 }
+
+TEST_F(ClientTests, SecondAuthenticationAfterReset) {
+    auth.Configure("FOO");
+    context.protocolStage = Smtp::Client::ProtocolStage::ReadyToSend;
+    (void)auth.IsExtraProtocolStageNeededHere(context);
+    SendGoAhead();
+    Smtp::Client::ParsedMessage parsedMessage;
+    parsedMessage.code = 235;
+    parsedMessage.last = true;
+    parsedMessage.text = "authenticated";
+    (void)auth.HandleServerMessage(
+        context,
+        parsedMessage
+    );
+    auth.Reset();
+    EXPECT_TRUE(auth.IsExtraProtocolStageNeededHere(context));
+}

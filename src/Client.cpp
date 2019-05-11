@@ -196,6 +196,7 @@ namespace SmtpAuth {
         for (auto& mech: impl_->mechs) {
             mech.second.impl->Reset();
         }
+        impl_->done = false;
     }
 
     bool Client::IsExtraProtocolStageNeededHere(
