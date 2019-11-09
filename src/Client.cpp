@@ -11,7 +11,7 @@
 #include <map>
 #include <SmtpAuth/Client.hpp>
 #include <sstream>
-#include <SystemAbstractions/StringExtensions.hpp>
+#include <StringExtensions/StringExtensions.hpp>
 #include <vector>
 
 namespace {
@@ -189,7 +189,7 @@ namespace SmtpAuth {
     }
 
     void Client::Configure(const std::string& parameters) {
-        impl_->supportedMechs = SystemAbstractions::Split(parameters, ' ');
+        impl_->supportedMechs = StringExtensions::Split(parameters, ' ');
     }
 
     void Client::Reset() {

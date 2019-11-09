@@ -17,10 +17,10 @@ set_target_properties(${This} PROPERTIES
 target_include_directories(${This} PRIVATE ..)
 
 target_link_libraries(${This} PUBLIC
+    Base64
     gtest_main
     Sasl
     SmtpAuth
-    SystemAbstractions
 )
 
 add_test(

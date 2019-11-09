@@ -24,6 +24,7 @@ target_link_libraries(${This} PUBLIC
     Base64
     Sasl
     Smtp
+    StringExtensions
     SystemAbstractions
 )
 
